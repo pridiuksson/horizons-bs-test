@@ -2,39 +2,54 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { signIn, signUp } from "@/lib/supabase";
+import { signIn, signUp } from "@/lib/auth";
+import { useToast } from "@/components/ui/use-toast";
 
-const AuthForm = ({ onSuccess, addDebugLog }) => {
+const AuthForm = ({ onSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      addDebugLog(`Attempting to ${isLogin ? 'sign in' : 'sign up'} user`, 'info', { email });
-      
       const { data, error } = isLogin
         ? await signIn(email, password)
         : await signUp(email, password);
 
       if (error) throw error;
 
-      addDebugLog(`User ${isLogin ? 'signed in' : 'signed up'} successfully`, 'success', {
-        email,
-        userId: data.user.id
+      // Validate response data
+      if (!data || !data.user) {
+        throw new Error('Invalid response from authentication service');
+      }
+
+      // For signup, check if email confirmation is required
+      if (!isLogin && !data.session) {
+        toast({
+          title: "Success",
+          description: "Please check your email to confirm your account",
+        });
+        return;
+      }
+
+      toast({
+        title: "Success",
+        description: isLogin ? "Signed in successfully" : "Account created successfully",
       });
 
-      onSuccess(data);
+      onSuccess({ session: data.session, user: data.user });
     } catch (error) {
-      addDebugLog(`Authentication failed`, 'error', {
-        error: error.message,
-        mode: isLogin ? 'sign-in' : 'sign-up'
-      });
       console.error('Authentication error:', error);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
@@ -57,6 +72,7 @@ const AuthForm = ({ onSuccess, addDebugLog }) => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            disabled={isLoading}
           />
         </div>
         <div>
@@ -66,6 +82,8 @@ const AuthForm = ({ onSuccess, addDebugLog }) => {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            disabled={isLoading}
+            minLength={6}
           />
         </div>
         <Button
@@ -84,6 +102,7 @@ const AuthForm = ({ onSuccess, addDebugLog }) => {
         <button
           onClick={() => setIsLogin(!isLogin)}
           className="text-sm text-blue-500 hover:text-blue-600"
+          disabled={isLoading}
         >
           {isLogin
             ? "Need an account? Sign Up"

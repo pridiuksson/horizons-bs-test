@@ -6,8 +6,6 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
 export const STORAGE_BUCKET = 'nine-picture-grid-images';
-export const DEFAULT_USER_EMAIL = 'zanito@gmail.com';
-export const DEFAULT_USER_PASSWORD = 'l1fe1spa1n1';
 
 export const uploadImageWithPermissions = async (bucketName, filePath, file, addDebugLog) => {
   try {
@@ -43,7 +41,7 @@ export const uploadImageWithPermissions = async (bucketName, filePath, file, add
       upsert: true,
       contentType: file.type,
       duplex: 'half',
-      returning: 'minimal', // Add minimal returns option
+      returning: 'minimal',
       headers: {
         'Authorization': `Bearer ${session.access_token}`,
         'x-upsert': 'true'
@@ -103,67 +101,6 @@ export const uploadImageWithPermissions = async (bucketName, filePath, file, add
       fullError: JSON.stringify(error, Object.getOwnPropertyNames(error), 2)
     });
     return { data: null, error };
-  }
-};
-
-export const ensureDefaultUser = async (addDebugLog) => {
-  try {
-    addDebugLog('Checking for default user existence...', 'info', {
-      email: DEFAULT_USER_EMAIL
-    });
-
-    // Try to sign in with default credentials first
-    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-      email: DEFAULT_USER_EMAIL,
-      password: DEFAULT_USER_PASSWORD,
-    });
-
-    // If sign in succeeds, user exists
-    if (signInData?.user) {
-      addDebugLog('Default user exists and signed in successfully', 'success', {
-        userId: signInData.user.id,
-        email: signInData.user.email,
-        role: signInData.user.role,
-        session: signInData.session ? 'Present' : 'Missing',
-        authenticatedAt: new Date(signInData.user.confirmed_at).toISOString()
-      });
-      return { user: signInData.user, error: null };
-    }
-
-    // If sign in fails due to user not found, create the user
-    if (signInError?.message?.includes('Invalid login credentials')) {
-      addDebugLog('Default user not found, creating...', 'info');
-
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: DEFAULT_USER_EMAIL,
-        password: DEFAULT_USER_PASSWORD,
-      });
-
-      if (signUpError) throw signUpError;
-
-      addDebugLog('Default user created successfully', 'success', {
-        userId: signUpData.user.id,
-        email: signUpData.user.email,
-        role: signUpData.user.role,
-        session: signUpData.session ? 'Present' : 'Missing',
-        authenticatedAt: new Date().toISOString()
-      });
-
-      return { user: signUpData.user, error: null };
-    }
-
-    // If sign in fails for other reasons, throw the error
-    if (signInError) throw signInError;
-
-    return { user: null, error: new Error('Failed to ensure default user') };
-  } catch (error) {
-    console.error('Error ensuring default user:', error);
-    addDebugLog('Failed to ensure default user', 'error', {
-      error: error.message,
-      stack: error.stack,
-      fullError: JSON.stringify(error, Object.getOwnPropertyNames(error), 2)
-    });
-    return { user: null, error };
   }
 };
 
